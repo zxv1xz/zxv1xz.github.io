@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>ChatGPT On Your Terms</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: auto;
+      padding: 10px;
+      background-color: black;
+      color: #66b2ff; /* lighter blue */
+    }
+    input,
+    button,
+    select {
+      padding: 8px;
+      margin: 5px 0;
+      box-sizing: border-box;
+      border: 2px solid #ff6666; /* softer red */
+      background-color: black;
+      color: #66b2ff; /* lighter blue */
+      border-radius: 8px; /* rounded corners */
+      transition: box-shadow 0.3s ease;
+    }
+    button {
+      cursor: pointer;
+    }
+    button:hover {
+      box-shadow: 0 0 8px 2px #ff6666; /* red neon glow */
+    }
+    #chat-box {
+      border: 2px solid #ff6666; /* softer red */
+      height: 300px;
+      overflow-y: auto;
+      padding: 5px;
+      margin: 10px 0;
+      background: black;
+      border-radius: 8px; /* rounded corners */
+    }
+    .message {
+      margin: 5px 0;
+    }
+    .user {
+      font-weight: bold;
+      color: #66b2ff; /* lighter blue */
+    }
+    .assistant {
+      color: #66ff66; /* softer green */
+    }
+    #input-row {
+      display: flex;
+      gap: 5px;
+    }
+    #user-input {
+      flex: 1;
+      font-size: 14px;
+      border-radius: 8px; /* rounded corners */
+    }
+    #send-btn {
+      flex: 0 0 auto;
+      width: 80px;
+      font-size: 14px;
+      color: #66b2ff; /* lighter blue */
+      background-color: black;
+      border-radius: 8px; /* rounded corners */
+    }
+  </style>
+</head>
+<body>
+  <h2>ChatGPT On Your Terms</h2>
+  <p><strong>Disclaimer:</strong> This uses <em>your</em> API key and charges <em>your</em> OpenAI account.</p>
+
+  <input
+    type="password"
+    id="api-key"
+    placeholder="Enter your API key"
+    style="width: 100%"
+  />
+  <input
+    type="text"
+    id="model"
+    placeholder="Enter model (e.g., gpt-4.1-nano)"
+    style="width: 100%"
+  />
+  <button id="save-btn" style="width: 100%">OK</button>
+  <button id="new-chat-btn" style="width: 100%">New Chat</button>
+  <button id="clear-btn" style="width: 100%">Clear All</button>
+
+  <div id="chat-box"></div>
+
+  <div id="input-row">
+    <input type="text" id="user-input" placeholder="Type your message..." />
+    <button id="send-btn">Send</button>
+  </div>
+
+  <script>
+    document.getElementById("api-key").value =
+      localStorage.getItem("apiKey") || "";
+    document.getElementById("model").value =
+      localStorage.getItem("model") || "";
+    let chatHistory = JSON.parse(localStorage.getItem("chatHistory") || "[]");
+    renderChat();
+
+    // Save API key + model
+    document.getElementById("save-btn").onclick = () => {
+      localStorage.setItem("apiKey", document.getElementById("api-key").value);
+      localStorage.setItem("model", document.getElementById("model").value);
+      alert("Saved!");
+    };
+
+    // Clear everything
+    document.getElementById("clear-btn").onclick = () => {
+      localStorage.removeItem("apiKey");
+      localStorage.removeItem("model");
+      localStorage.removeItem("chatHistory");
+      chatHistory = [];
+      document.getElementById("api-key").value = "";
+      document.getElementById("model").value = "";
+      renderChat();
+      alert("Cleared all data!");
+    };
+
+    // New Chat (keeps key + model)
+    document.getElementById("new-chat-btn").onclick = () => {
+      chatHistory = [];
+      localStorage.removeItem("chatHistory");
+      renderChat();
+      alert("Started a new chat!");
+    };
+
+    let thinkingInterval;
+
+    async function sendMessage() {
+      const apiKey = localStorage.getItem("apiKey");
+      const model = localStorage.getItem("model");
+      const userText = document.getElementById("user-input").value;
+      if (!apiKey || !model) {
+        alert("Please enter and save your API key and model first.");
+        return;
+      }
+      if (!userText.trim()) return;
+
+      chatHistory.push({ role: "user", content: userText });
+      renderChat();
+      document.getElementById("user-input").value = "";
+
+      // Add placeholder assistant "thinking..."
+      chatHistory.push({ role: "assistant", content: "Thinking..." });
+      renderChat();
+
+      // Cycle through fake statuses
+      const statuses = ["Thinking...", "Analyzing...", "Reasoning...", "Searching..."];
+      let i = 0;
+      thinkingInterval = setInterval(() => {
+        chatHistory[chatHistory.length - 1].content = statuses[i % statuses.length];
+        renderChat();
+        i++;
+      }, 1500);
+
+      try {
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: chatHistory.filter(
+              (m) => !(m.role === "assistant" && statuses.includes(m.content))
+            ),
+          }),
+        });
+
+        const data = await res.json();
+        const reply = data.choices?.[0]?.message?.content || "[No response]";
+
+        clearInterval(thinkingInterval);
+        chatHistory[chatHistory.length - 1].content = reply;
+        localStorage.setItem("chatHistory", JSON.stringify(chatHistory));
+        renderChat();
+      } catch (err) {
+        clearInterval(thinkingInterval);
+        chatHistory[chatHistory.length - 1].content = "[Error: " + err.message + "]";
+        renderChat();
+      }
+    }
+
+    document.getElementById("send-btn").onclick = sendMessage;
+
+    document
+      .getElementById("user-input")
+      .addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+
+    function renderChat() {
+      const chatBox = document.getElementById("chat-box");
+      chatBox.innerHTML = chatHistory
+        .map((msg) => {
+          if (msg.role === "user") {
+            return `<div class="message user">You: ${msg.content}</div>`;
+          } else {
+            return `<div class="message assistant">ChatGPT: ${msg.content}</div>`;
+          }
+        })
+        .join("");
+      localStorage.setItem("chatHistory", JSON.stringify(chatHistory));
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+  </script>
+</body>
+</html>
