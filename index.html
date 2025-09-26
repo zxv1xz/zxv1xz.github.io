@@ -72,18 +72,8 @@
   <h2>ChatGPT On Your Terms</h2>
   <p><strong>Disclaimer:</strong> This uses <em>your</em> API key and charges <em>your</em> OpenAI account.</p>
 
-  <input
-    type="password"
-    id="api-key"
-    placeholder="Enter your API key"
-    style="width: 100%"
-  />
-  <input
-    type="text"
-    id="model"
-    placeholder="Enter model (e.g., gpt-4.1-nano)"
-    style="width: 100%"
-  />
+  <input type="password" id="api-key" placeholder="Enter your API key" style="width: 100%" />
+  <input type="text" id="model" placeholder="Enter model (e.g., gpt-4.1-nano)" style="width: 100%" />
   <button id="save-btn" style="width: 100%">OK</button>
   <button id="clear-btn" style="width: 100%">Clear All</button>
   <button id="new-chat-btn" style="width: 100%">New Chat</button>
@@ -96,18 +86,25 @@
   </div>
 
   <script>
-    document.getElementById("api-key").value =
-      localStorage.getItem("apiKey") || "";
-    document.getElementById("model").value =
-      localStorage.getItem("model") || "";
+    document.getElementById("api-key").value = localStorage.getItem("apiKey") || "";
+    document.getElementById("model").value = localStorage.getItem("model") || "";
     let chatHistory = JSON.parse(localStorage.getItem("chatHistory") || "[]");
     renderChat();
+
+    // helper to flash button text temporarily
+    function flashButton(btn, text) {
+      const original = btn.textContent;
+      btn.textContent = text;
+      setTimeout(() => {
+        btn.textContent = original;
+      }, 2000);
+    }
 
     // Save API key + model
     document.getElementById("save-btn").onclick = () => {
       localStorage.setItem("apiKey", document.getElementById("api-key").value);
       localStorage.setItem("model", document.getElementById("model").value);
-      alert("Saved!");
+      flashButton(document.getElementById("save-btn"), "Saved!");
     };
 
     // Clear everything
@@ -119,7 +116,7 @@
       document.getElementById("api-key").value = "";
       document.getElementById("model").value = "";
       renderChat();
-      alert("Cleared all data!");
+      flashButton(document.getElementById("clear-btn"), "Cleared!");
     };
 
     // New Chat (keeps key + model)
@@ -127,7 +124,7 @@
       chatHistory = [];
       localStorage.removeItem("chatHistory");
       renderChat();
-      alert("Started a new chat!");
+      flashButton(document.getElementById("new-chat-btn"), "Chat cleared!");
     };
 
     let thinkingInterval;
@@ -136,10 +133,7 @@
       const apiKey = localStorage.getItem("apiKey");
       const model = localStorage.getItem("model");
       const userText = document.getElementById("user-input").value;
-      if (!apiKey || !model) {
-        alert("Please enter and save your API key and model first.");
-        return;
-      }
+      if (!apiKey || !model) return;
       if (!userText.trim()) return;
 
       chatHistory.push({ role: "user", content: userText });
@@ -189,15 +183,12 @@
     }
 
     document.getElementById("send-btn").onclick = sendMessage;
-
-    document
-      .getElementById("user-input")
-      .addEventListener("keypress", (e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          sendMessage();
-        }
-      });
+    document.getElementById("user-input").addEventListener("keypress", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
 
     function renderChat() {
       const chatBox = document.getElementById("chat-box");
