@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>ChatGPT On Your Terms</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 10px; }
+    input, button, select { padding: 8px; margin: 5px 0; box-sizing: border-box; }
+    #chat-box { border: 1px solid #ccc; height: 300px; overflow-y: auto; padding: 5px; margin: 10px 0; background: #fafafa; }
+    .message { margin: 5px 0; }
+    .user { font-weight: bold; }
+    .assistant { color: green; }
+    #input-row { display: flex; gap: 5px; }
+    #user-input { flex: 1; font-size: 14px; }
+    #send-btn { flex: 0 0 auto; width: 80px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h2>ChatGPT On Your Terms</h2>
+  <p><strong>Disclaimer:</strong> This uses <em>your</em> API key and charges <em>your</em> OpenAI account.</p>
+
+  <input type="password" id="api-key" placeholder="Enter your API key" style="width:100%;">
+  <input type="text" id="model" placeholder="Enter model (e.g., gpt-4.1-nano)" style="width:100%;">
+  <button id="save-btn" style="width:100%;">OK</button>
+  <button id="clear-btn" style="width:100%;">Clear All</button>
+
+  <div id="chat-box"></div>
+
+  <div id="input-row">
+    <input type="text" id="user-input" placeholder="Type your message...">
+    <button id="send-btn">Send</button>
+  </div>
+
+  <script>
+    // Load saved API key, model, and chat
+    document.getElementById('api-key').value = localStorage.getItem('apiKey') || '';
+    document.getElementById('model').value = localStorage.getItem('model') || '';
+    let chatHistory = JSON.parse(localStorage.getItem('chatHistory') || '[]');
+    renderChat();
+
+    document.getElementById('save-btn').onclick = () => {
+      localStorage.setItem('apiKey', document.getElementById('api-key').value);
+      localStorage.setItem('model', document.getElementById('model').value);
+      alert('Saved!');
+    };
+
+    document.getElementById('clear-btn').onclick = () => {
+      localStorage.clear();
+      chatHistory = [];
+      renderChat();
+      alert('Cleared all data!');
+    };
+
+    async function sendMessage() {
+      const apiKey = localStorage.getItem('apiKey');
+      const model = localStorage.getItem('model');
+      const userText = document.getElementById('user-input').value;
+      if (!apiKey || !model) {
+        alert('Please enter and save your API key and model first.');
+        return;
+      }
+      if (!userText.trim()) return;
+
+      // Add user message to history
+      chatHistory.push({ role: 'user', content: userText });
+      renderChat();
+      document.getElementById('user-input').value = '';
+
+      try {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: chatHistory
+          })
+        });
+
+        const data = await res.json();
+        const reply = data.choices?.[0]?.message?.content || '[No response]';
+        chatHistory.push({ role: 'assistant', content: reply });
+        localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+        renderChat();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    document.getElementById('send-btn').onclick = sendMessage;
+
+    document.getElementById('user-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    function renderChat() {
+      const chatBox = document.getElementById('chat-box');
+      chatBox.innerHTML = chatHistory.map(msg => {
+        if (msg.role === 'user') {
+          return `<div class="message user">You: ${msg.content}</div>`;
+        } else {
+          return `<div class="message assistant">ChatGPT: ${msg.content}</div>`;
+        }
+      }).join('');
+      localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+  </script>
+</body>
+</html>
